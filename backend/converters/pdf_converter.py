@@ -6,8 +6,12 @@ from pathlib import Path
 
 import fitz
 
-from backend.converters.markdown_converter import normalize_markdown
-from backend.models import Asset, ConversionResult
+try:
+    from backend.converters.markdown_converter import normalize_markdown
+    from backend.models import Asset, ConversionResult
+except ModuleNotFoundError:
+    from converters.markdown_converter import normalize_markdown
+    from models import Asset, ConversionResult
 
 _BULLET = re.compile(r"^[\s]*[•◦▪‣–—-]\s+")
 _NUMBERED = re.compile(r"^[\s]*(\d+)[.)]\s+")

@@ -13,9 +13,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from backend.converters.docx_converter import convert_docx
-from backend.converters.pdf_converter import convert_pdf
-from backend.utils.file_validator import FileValidationError, validate_upload
+try:
+    from backend.converters.docx_converter import convert_docx
+    from backend.converters.pdf_converter import convert_pdf
+    from backend.utils.file_validator import FileValidationError, validate_upload
+except ModuleNotFoundError:
+    from converters.docx_converter import convert_docx
+    from converters.pdf_converter import convert_pdf
+    from utils.file_validator import FileValidationError, validate_upload
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger("markdrop")

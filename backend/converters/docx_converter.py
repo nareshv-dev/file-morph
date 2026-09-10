@@ -11,8 +11,12 @@ from docx.oxml.ns import qn
 from docx.table import Table, _Cell
 from docx.text.paragraph import Paragraph
 
-from backend.converters.markdown_converter import markdown_table, normalize_markdown
-from backend.models import Asset, ConversionResult
+try:
+    from backend.converters.markdown_converter import markdown_table, normalize_markdown
+    from backend.models import Asset, ConversionResult
+except ModuleNotFoundError:
+    from converters.markdown_converter import markdown_table, normalize_markdown
+    from models import Asset, ConversionResult
 
 
 def _iter_blocks(parent: DocumentObject | _Cell) -> Iterator[Paragraph | Table]:
