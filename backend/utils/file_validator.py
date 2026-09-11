@@ -30,11 +30,18 @@ def sanitize_filename(filename: str | None) -> str:
     return f"{stem or 'document'}{suffix}"
 
 
-async def validate_upload(upload: UploadFile) -> tuple[str, str, bytes]:
+async def validate_upload(
+    upload: UploadFile,
+    allowed_extensions: set[str] | None = None,
+) -> tuple[str, str, bytes]:
     filename = sanitize_filename(upload.filename)
     extension = Path(filename).suffix.lower()
-    if extension not in ALLOWED_EXTENSIONS:
-        raise FileValidationError("Only PDF and DOCX files are supported.")
+    accepted = allowed_extensions or ALLOWED_EXTENSIONS
+    if extension not in accepted:
+        if accepted == ALLOWED_EXTENSIONS:
+            raise FileValidationError("Only PDF and DOCX files are supported.")
+        expected = " or ".join(item.removeprefix(".").upper() for item in sorted(accepted))
+        raise FileValidationError(f"Only {expected} files are supported for this conversion.")
 
     content_type = (upload.content_type or "application/octet-stream").lower()
     if content_type not in ALLOWED_MIME_TYPES[extension]:
@@ -50,4 +57,3 @@ async def validate_upload(upload: UploadFile) -> tuple[str, str, bytes]:
     if extension == ".docx" and not data.startswith(b"PK"):
         raise FileValidationError("The DOCX file appears to be invalid or corrupted.")
     return filename, extension, data
-

@@ -10,3 +10,7 @@ export function CloseIcon() { return <svg {...iconProps}><path d="M18 6L6 18M6 6
 export function DownloadIcon() { return <svg {...iconProps}><path d="M12 3v12m0 0l4-4m-4 4l-4-4"/><path d="M5 20h14"/></svg> }
 export function RefreshIcon() { return <svg {...iconProps}><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 8A7 7 0 0118.7 7M5.3 17A7 7 0 0017.9 16"/></svg> }
 export function ImageIcon() { return <svg {...iconProps}><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="M21 15l-5-5L5 20"/></svg> }
+export function ArrowIcon() { return <svg {...iconProps}><path d="M5 12h14M14 7l5 5-5 5"/></svg> }
+export function PdfIcon() { return <svg {...iconProps} width="24" height="24"><path d="M6 2.5h8l4 4V21H6z"/><path d="M14 2.5v4h4M8.5 15.5h7M8.5 12h7"/></svg> }
+export function WordIcon() { return <svg {...iconProps} width="24" height="24"><path d="M4 5.5h16v13H4zM8 3v3M16 3v3"/><path d="M8 10l1.5 5 2.5-5 2.5 5L16 10"/></svg> }
+export function MarkdownIcon() { return <svg {...iconProps} width="24" height="24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M6.5 15v-6l2.5 3 2.5-3v6M15 12h3m-1.5-2v5"/></svg> }

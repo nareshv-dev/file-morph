@@ -1,12 +1,12 @@
 {
-  "name": "markdrop-frontend",
+  "name": "filemorph-frontend",
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently --kill-others --names API,WEB --prefix-colors green,blue \"python -m uvicorn backend.main:app --reload --port 8000 --app-dir ..\" \"vite\"",
+    "dev": "concurrently --kill-others --names API,WEB --prefix-colors green,blue \"python -m uvicorn backend.main:app --reload --reload-dir ../backend --port 8001 --app-dir ..\" \"vite\"",
     "dev:web": "vite",
-    "dev:api": "python -m uvicorn backend.main:app --reload --port 8000 --app-dir ..",
+    "dev:api": "python -m uvicorn backend.main:app --reload --reload-dir ../backend --port 8001 --app-dir ..",
     "build": "vite build",
     "preview": "vite preview"
   },

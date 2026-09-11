@@ -26,8 +26,8 @@ def markdown_table(rows: list[list[str]]) -> str:
 
 def normalize_markdown(parts: list[str]) -> str:
     text = "\n\n".join(part.strip() for part in parts if part and part.strip())
+    text = "".join(character for character in text if character in "\n\t" or ord(character) >= 0x20)
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     text = re.sub(r"[ \t]+\n", "\n", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip() + "\n"
-

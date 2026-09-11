@@ -1,388 +1,143 @@
-# MarkDrop Project Architecture
+# FileMorph Project Architecture
 
-This file explains how the MarkDrop project works and where the PDF/DOCX to Markdown conversion happens.
+This document explains how FileMorph works and identifies the files and functions responsible for every conversion.
 
-## What This Project Does
-
-MarkDrop is a full-stack document converter.
-
-It accepts a PDF or DOCX file from the browser, sends it to a Python FastAPI backend, extracts readable content and images, converts the structure into Markdown, and returns a downloadable `.md` file plus an optional ZIP bundle with images.
-
-Important note: this project does not use an AI model. The conversion is done with Python libraries and custom converter logic.
-
-- PDF files are read using `PyMuPDF`.
-- DOCX files are read using `python-docx`.
-- Markdown formatting is created by the code inside `backend/converters/`.
-
-## High-Level Flow
+## System flow
 
 ```text
-User selects PDF/DOCX in browser
+Choose a conversion type
         |
         v
-React frontend sends file to /api/convert
+Open the matching PDF or DOCX drop zone
         |
         v
-FastAPI backend receives uploaded file
+POST the file to /api/convert/{conversion-type}
         |
         v
-File validator checks file type, size, and signature
+Validate extension, MIME type, size, and file signature
         |
         v
-Backend chooses PDF converter or DOCX converter
+Run the selected converter entirely in memory
         |
         v
-Converter extracts text, headings, lists, tables, links, and images
+Return DOCX/PDF bytes or Markdown JSON
         |
         v
-Markdown is normalized
-        |
-        v
-Backend returns Markdown, image assets, and ZIP bundle
-        |
-        v
-Frontend shows preview and download buttons
+Download the output (and preview Markdown when applicable)
 ```
 
-## Main Frontend Files
+The project does not use an AI model. Conversion is performed by deterministic Python code using PyMuPDF and python-docx.
+
+## Frontend
 
 ### `frontend/src/App.jsx`
 
-This is the main React component. It controls the upload, API call, loading state, error handling, result preview, and download buttons.
+This is the main workflow controller.
 
-The conversion starts in the frontend here:
+- `CONVERSIONS` defines the three choices and their accepted input types.
+- `chooseMode()` changes the interface to the selected drop zone and writes a shareable URL hash.
+- `convert()` posts the file to `/api/convert/${mode.id}`.
+- Binary DOCX/PDF responses are downloaded as blobs.
+- Markdown JSON responses are shown in the existing raw/rendered preview.
 
-```javascript
-async function convert() {
-```
+### `frontend/src/components/FileUpload.jsx`
 
-Inside that function, the uploaded file is sent to the backend:
+This component provides click-to-browse and drag-and-drop upload. The `acceptedExtensions` property changes by selected mode, so PDF to DOCX accepts only PDF and DOCX to PDF accepts only DOCX.
 
-```javascript
-const response = await fetch('/api/convert', { method: 'POST', body, signal: controller.signal })
-```
+### `frontend/src/components/MarkdownPreview.jsx`
 
-After the backend returns the converted Markdown, the frontend stores the response:
+This is used only for the Markdown mode. It displays both rendered Markdown and the raw Markdown source, and replaces extracted image paths with temporary in-browser data URLs for previewing.
 
-```javascript
-setResult(data); setStatus('complete')
-```
-
-The Markdown download button creates a `.md` file from `result.markdown`.
-
-```javascript
-downloadBlob(new Blob([result.markdown], { type: 'text/markdown;charset=utf-8' }), result.markdown_filename)
-```
-
-## Main Backend Files
+## API and validation
 
 ### `backend/main.py`
 
-This is the FastAPI server. It defines the API routes.
-
-The upload route is:
+The new mode-aware route is:
 
 ```python
-@app.post("/api/convert")
-async def convert(file: UploadFile = File(...)) -> JSONResponse:
+@app.post("/api/convert/{conversion_type}")
+async def convert_format(conversion_type: str, file: UploadFile = File(...)) -> Response:
 ```
 
-The uploaded file is validated:
+Its `conversions` map connects each route name to the correct source extension, converter function, output extension, and MIME type:
 
 ```python
-filename, extension, data = await validate_upload(file)
+"pdf-to-docx": ({".pdf"}, convert_pdf_to_docx, ".docx", ...)
+"docx-to-pdf": ({".docx"}, convert_docx_to_pdf, ".pdf", ...)
 ```
 
-This is the most important conversion decision line:
-
-```python
-result = convert_pdf(data) if extension == ".pdf" else convert_docx(data)
-```
-
-That line means:
-
-- If the uploaded file extension is `.pdf`, call `convert_pdf(data)`.
-- Otherwise, call `convert_docx(data)`.
-
-The backend then creates the output Markdown file name:
-
-```python
-markdown_name = f"{Path(filename).stem}.md"
-```
-
-Finally, the backend returns the converted result to the frontend as JSON:
-
-```python
-return JSONResponse({
-    "original_filename": filename,
-    "markdown_filename": markdown_name,
-    "markdown": result.markdown,
-    "assets": assets,
-    "bundle_filename": f"{Path(filename).stem}-markdown.zip",
-    "bundle": _make_bundle(markdown_name, result.markdown, result.assets),
-    "page_count": result.page_count,
-})
-```
-
-## File Validation
+`to-markdown` delegates to the original Markdown conversion function. The old `/api/convert` route is kept so existing clients continue to work.
 
 ### `backend/utils/file_validator.py`
 
-This file protects the backend from invalid uploads.
+`validate_upload()` checks:
 
-It checks:
+- the extension required by the selected conversion;
+- the reported MIME type;
+- that the file is not empty;
+- the 20 MB maximum size;
+- the `%PDF-` signature for PDF or the `PK` ZIP signature for DOCX.
 
-- Whether the extension is allowed.
-- Whether the MIME type matches.
-- Whether the file size is under the limit.
-- Whether the file really looks like a PDF or DOCX internally.
+## PDF to DOCX
 
-The validator starts here:
+### `backend/converters/pdf_to_docx_converter.py`
 
-```python
-async def validate_upload(upload: UploadFile) -> tuple[str, str, bytes]:
-```
-
-The project currently allows files up to 20 MB:
+The main function is:
 
 ```python
-MAX_FILE_SIZE = 20 * 1024 * 1024
+def convert_pdf_to_docx(source: Path | bytes) -> bytes:
 ```
 
-It reads the uploaded file into memory:
+It opens the PDF with PyMuPDF, renders every page at high resolution, fits each page image to a matching zero-margin Word page, adds deterministic page breaks, and returns the generated DOCX as bytes. This prevents Word's paragraph reflow from moving columns, dates, rules, icons, or other fixed-layout PDF content.
+
+Important helpers:
+
+- `_open_pdf()` validates that PyMuPDF can open the source.
+- `_configure_page()` matches the Word page dimensions to the first PDF page.
+- `_add_pdf_page()` renders and inserts one full-page image without cropping or stretching.
+
+## DOCX to PDF
+
+### `backend/converters/docx_to_pdf_converter.py`
+
+The main function is:
 
 ```python
-data = await upload.read(MAX_FILE_SIZE + 1)
+def convert_docx_to_pdf(source: Path | bytes) -> bytes:
 ```
 
-It checks PDF files using the PDF signature:
+It reads the DOCX with python-docx, walks paragraphs and tables in document order, translates Word structure and inline formatting into safe HTML, places embedded images in a PyMuPDF in-memory archive, and uses `fitz.Story` plus `fitz.DocumentWriter` to create the PDF.
 
-```python
-if extension == ".pdf" and not data.startswith(b"%PDF-"):
-```
+Important helpers:
 
-It checks DOCX files using the ZIP signature, because `.docx` files are internally ZIP files:
+- `_iter_blocks()` preserves paragraph/table order.
+- `_run_html()` transfers bold, italic, underline, hyperlinks, and images.
+- `_paragraph_html()` maps headings and list styles.
+- `_table_html()` creates bordered PDF tables.
 
-```python
-if extension == ".docx" and not data.startswith(b"PK"):
-```
-
-## PDF Conversion
+## PDF or DOCX to Markdown
 
 ### `backend/converters/pdf_converter.py`
 
-The PDF converter starts here:
-
-```python
-def convert_pdf(source: Path | bytes) -> ConversionResult:
-```
-
-It opens the PDF using PyMuPDF:
-
-```python
-document = fitz.open(stream=source, filetype="pdf") if isinstance(source, bytes) else fitz.open(source)
-```
-
-It rejects password-protected PDFs:
-
-```python
-if document.needs_pass:
-```
-
-It extracts page text as structured data:
-
-```python
-data = page.get_text("dict", sort=True)
-```
-
-PDF content comes as blocks, lines, and spans. The converter reads these blocks and decides how to format them as Markdown.
-
-For images, the converter creates Markdown image references:
-
-```python
-page_parts.append(f"![Image from page {page_index}]({image_name})")
-```
-
-For headings, the converter uses font size and boldness. Larger text becomes Markdown headings:
-
-```python
-text = f"# {_block_markdown(page, block, heading=True)}"
-```
-
-or:
-
-```python
-text = f"## {_block_markdown(page, block, heading=True)}"
-```
-
-or:
-
-```python
-text = f"### {_block_markdown(page, block, heading=True)}"
-```
-
-For bullet lists:
-
-```python
-text = "- " + _BULLET.sub("", text)
-```
-
-For numbered lists:
-
-```python
-text = f"{match.group(1)}. " + _NUMBERED.sub("", text)
-```
-
-The final PDF result is returned here:
-
-```python
-return ConversionResult(normalize_markdown(parts), assets, len(document))
-```
-
-## DOCX Conversion
+`convert_pdf()` extracts ordered text blocks, detects headings from font sizes, carries bold/italic text and links into Markdown, extracts embedded images, and returns a `ConversionResult`.
 
 ### `backend/converters/docx_converter.py`
 
-The DOCX converter starts here:
-
-```python
-def convert_docx(source: Path | bytes) -> ConversionResult:
-```
-
-It opens the DOCX file using `python-docx`:
-
-```python
-document = Document(BytesIO(source) if isinstance(source, bytes) else source)
-```
-
-It loops through paragraphs and tables:
-
-```python
-for block in _iter_blocks(document):
-```
-
-If the block is a paragraph, it converts it using:
-
-```python
-value = _paragraph_markdown(block, document, assets, image_counter)
-```
-
-If the block is a table, it converts rows into a Markdown table:
-
-```python
-value = markdown_table(rows)
-```
-
-Headings are converted by checking the DOCX paragraph style:
-
-```python
-heading_match = re.match(r"heading\s+(\d+)", style)
-```
-
-Then it creates Markdown heading syntax:
-
-```python
-return f"{'#' * min(6, int(heading_match.group(1)))} {text}"
-```
-
-Images inside DOCX files are extracted here:
-
-```python
-assets.append(Asset(filename, _content_type(suffix), part.blob, description))
-```
-
-The image is referenced in Markdown like this:
-
-```python
-image_refs.append(f"![{description}]({filename})")
-```
-
-The final DOCX result is returned here:
-
-```python
-return ConversionResult(normalize_markdown(parts), assets)
-```
-
-## Markdown Helpers
+`convert_docx()` walks Word paragraphs and tables, maps Word headings/lists/emphasis/links into Markdown, extracts images, and returns a `ConversionResult`.
 
 ### `backend/converters/markdown_converter.py`
 
-This file contains helper functions that clean and format Markdown.
+`markdown_table()` produces Markdown tables and `normalize_markdown()` removes unwanted spacing while preserving content.
 
-Tables are created here:
+## Response formats
 
-```python
-def markdown_table(rows: list[list[str]]) -> str:
-```
+PDF to DOCX and DOCX to PDF return the converted file bytes directly with `Content-Disposition` and `X-Output-Filename` headers. This avoids base64 overhead and lets the frontend download the response as a browser `Blob`.
 
-Final Markdown cleanup happens here:
+Markdown conversion returns JSON because the frontend needs the Markdown text for preview, image assets for rendering, and a ready-made ZIP bundle containing the `.md` file plus its `images/` directory.
 
-```python
-def normalize_markdown(parts: list[str]) -> str:
-```
+## Limitations
 
-This removes extra blank lines and joins all extracted Markdown parts into one clean Markdown file.
-
-## Data Models
-
-### `backend/models.py`
-
-The backend uses small data classes to pass conversion results around.
-
-`Asset` represents an extracted image:
-
-```python
-class Asset:
-```
-
-`ConversionResult` represents the final converted output:
-
-```python
-class ConversionResult:
-```
-
-It stores:
-
-- `markdown`: the final Markdown text.
-- `assets`: extracted images.
-- `page_count`: number of pages, mainly for PDFs.
-
-## Why Images Need A ZIP
-
-Markdown files do not store image bytes inside the `.md` file by default.
-
-Instead, Markdown references image paths:
-
-```markdown
-![Document image](images/image-1.png)
-```
-
-That means the image file must exist beside the Markdown file. This is why MarkDrop provides:
-
-- A standalone `.md` download.
-- A ZIP download containing the `.md` file plus the `images/` folder.
-
-The ZIP bundle is created in `backend/main.py`:
-
-```python
-def _make_bundle(markdown_name: str, markdown: str, assets) -> str:
-```
-
-## Short Answer
-
-The most important line in the whole project is in `backend/main.py`:
-
-```python
-result = convert_pdf(data) if extension == ".pdf" else convert_docx(data)
-```
-
-The actual conversion logic lives here:
-
-- `backend/converters/pdf_converter.py`
-- `backend/converters/docx_converter.py`
-- `backend/converters/markdown_converter.py`
-
-The frontend upload and download logic lives here:
-
-- `frontend/src/App.jsx`
-
+- PDF is fixed-layout while Word text reflows. PDF to DOCX therefore prioritizes visual fidelity by placing each source page as a high-resolution page image. The result preserves appearance but is not reflowable/editable at the text level.
+- DOCX layout features such as floating shapes, SmartArt, tracked changes, complex headers/footers, and advanced pagination may be simplified in PDF output.
+- Scanned PDFs work for layout-preserved DOCX output, but their text remains part of the page image because OCR is not included.
+- `.doc` is a legacy binary format; FileMorph accepts modern `.docx` files.

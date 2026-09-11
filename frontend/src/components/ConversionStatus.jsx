@@ -1,8 +1,8 @@
-export default function ConversionStatus() {
+export default function ConversionStatus({ outputLabel }) {
   return (
     <div className="converting" role="status" aria-live="polite">
       <span className="spinner" aria-hidden="true" />
-      <div><strong>Converting your document…</strong><span>Preserving structure and extracting images</span></div>
+      <div><strong>Converting your document...</strong><span>Preparing the {outputLabel} file and preserving document content</span></div>
     </div>
   )
 }

@@ -2,22 +2,27 @@ import { useRef, useState } from 'react'
 import { CloseIcon, FileIcon, ShieldIcon, UploadIcon } from './Icons.jsx'
 
 const MAX_BYTES = 20 * 1024 * 1024
-const ACCEPTED = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+const MIME_TYPES = {
+  pdf: ['application/pdf', 'application/x-pdf'],
+  docx: ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip'],
+}
 
 function formatBytes(bytes) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-export default function FileUpload({ file, onFile, disabled, error, setError }) {
+export default function FileUpload({ file, onFile, disabled, error, setError, acceptedExtensions, sourceLabel }) {
   const inputRef = useRef(null)
   const [dragging, setDragging] = useState(false)
+  const accept = acceptedExtensions.map((extension) => `.${extension}`).join(',')
 
   function choose(next) {
-    if (!next) return
+    if (!next || disabled) return
     const extension = next.name.split('.').pop()?.toLowerCase()
-    if (!['pdf', 'docx'].includes(extension) || (!ACCEPTED.includes(next.type) && next.type !== '')) {
-      setError('Choose a PDF or DOCX file to continue.')
+    const validMime = next.type === '' || (MIME_TYPES[extension] || []).includes(next.type)
+    if (!acceptedExtensions.includes(extension) || !validMime) {
+      setError(`Choose a ${sourceLabel} file to continue.`)
       return
     }
     if (next.size === 0) {
@@ -49,20 +54,24 @@ export default function FileUpload({ file, onFile, disabled, error, setError }) 
     <>
       <div
         className={`dropzone ${dragging ? 'is-dragging' : ''}`}
-        onDragOver={(event) => { event.preventDefault(); setDragging(true) }}
+        onDragOver={(event) => { event.preventDefault(); if (!disabled) setDragging(true) }}
         onDragLeave={() => setDragging(false)}
         onDrop={(event) => { event.preventDefault(); setDragging(false); choose(event.dataTransfer.files[0]) }}
-        onClick={() => inputRef.current?.click()}
-        onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') inputRef.current?.click() }}
+        onClick={() => !disabled && inputRef.current?.click()}
+        onKeyDown={(event) => { if (!disabled && (event.key === 'Enter' || event.key === ' ')) inputRef.current?.click() }}
         role="button"
-        tabIndex="0"
-        aria-label="Upload a PDF or DOCX document"
+        tabIndex={disabled ? -1 : 0}
+        aria-disabled={disabled}
+        aria-label={`Upload a ${sourceLabel} document`}
       >
-        <input ref={inputRef} type="file" accept=".pdf,.docx" onChange={(event) => choose(event.target.files[0])} hidden />
+        <input ref={inputRef} type="file" accept={accept} onChange={(event) => choose(event.target.files[0])} hidden />
         <span className="upload-icon"><UploadIcon /></span>
-        <h2>Drop your document here</h2>
+        <h2>Drop your {sourceLabel} here</h2>
         <p>or <span className="browse-link">browse files</span> from your device</p>
-        <div className="file-rules"><span>PDF</span><span>DOCX</span><span>Up to 20 MB</span></div>
+        <div className="file-rules">
+          {acceptedExtensions.map((extension) => <span key={extension}>{extension.toUpperCase()}</span>)}
+          <span>Up to 20 MB</span>
+        </div>
       </div>
       {error && <p className="inline-error" role="alert">{error}</p>}
       <p className="privacy-note"><ShieldIcon /> Your files are processed temporarily and are not permanently stored.</p>
