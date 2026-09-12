@@ -1,0 +1,15 @@
+import { useEffect, useState } from 'react'
+import { api, formatBytes, navigate } from '../api.js'
+import { DownloadIcon, RefreshIcon, TrashIcon } from './Icons.jsx'
+
+export default function JobDetailPage({ jobId }) {
+  const [job, setJob] = useState(null)
+  const [name, setName] = useState('')
+  const [error, setError] = useState('')
+  useEffect(() => { api(`/api/conversions/${jobId}`).then((data) => { setJob(data.job); setName(data.job.output_filename || '') }).catch((requestError) => setError(requestError.message)) }, [jobId])
+  async function rename(event) { event.preventDefault(); const body = new FormData(); body.append('output_filename', name); try { const data = await api(`/api/conversions/${jobId}`, { method: 'PATCH', body }); setJob(data.job); setName(data.job.output_filename) } catch (requestError) { setError(requestError.message) } }
+  async function download() { try { const blob = await api(`/api/conversions/${jobId}/download`); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = job.output_filename; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000) } catch (requestError) { setError(requestError.message) } }
+  async function retry() { try { const data = await api(`/api/conversions/${jobId}/retry`, { method: 'POST' }); setJob(data.job) } catch (requestError) { setError(requestError.message) } }
+  async function remove() { if (!window.confirm('Permanently delete this job and all its uploaded and converted files?')) return; await api(`/api/conversions/${jobId}`, { method: 'DELETE' }); navigate('/history') }
+  return <main id="main" className="history-layout"><button className="text-button" onClick={() => navigate('/history')}>Back to history</button>{error && <p className="form-error" role="alert">{error}</p>}{job ? <><section className="page-heading"><div className="eyebrow"><span /> CONVERSION DETAILS</div><h1>{job.source_filename}</h1><p>{job.source_format.toUpperCase()} to {job.target_format.toUpperCase()} · {job.status}</p></section><div className="result-summary"><div><span>Source size</span><strong>{formatBytes(job.source_size)}</strong></div><div><span>Output size</span><strong>{formatBytes(job.output_size)}</strong></div><div><span>Expires</span><strong>{new Date(job.expires_at).toLocaleString()}</strong></div></div><p className="limitation-note">{job.fidelity_mode}</p>{job.failure_reason && <p className="form-error">{job.failure_reason}</p>}{job.status === 'completed' && <form className="rename-form" onSubmit={rename}><label>Output filename<input value={name} onChange={(event) => setName(event.target.value)} /></label><button className="secondary-button">Rename</button></form>}<div className="result-actions">{job.status === 'completed' && <button className="primary-button" onClick={download}><DownloadIcon /> Download</button>}<button className="secondary-button" onClick={retry}><RefreshIcon /> Retry</button><button className="danger-button" onClick={remove}><TrashIcon /> Delete permanently</button></div></> : !error && <p className="empty-state">Loading conversion...</p>}</main>
+}

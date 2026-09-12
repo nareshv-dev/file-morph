@@ -5,17 +5,17 @@
       "root": "frontend/",
       "framework": "vite"
     },
-    "backend": {
+    "api": {
       "root": "backend/",
-      "framework": "fastapi",
-      "entrypoint": "main:app"
+      "entrypoint": "main:app",
+      "framework": "fastapi"
     }
   },
   "rewrites": [
     {
-      "source": "/api/:path*",
+      "source": "/api/(.*)",
       "destination": {
-        "service": "backend"
+        "service": "api"
       }
     },
     {

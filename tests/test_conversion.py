@@ -56,6 +56,15 @@ def test_health_endpoint() -> None:
     assert response.json() == {"status": "healthy", "service": "FileMorph"}
 
 
+def test_formats_expose_only_registered_converters() -> None:
+    response = client.get("/api/formats")
+    assert response.status_code == 200
+    formats = response.json()["formats"]
+    assert {"pdf-to-docx", "docx-to-pdf", "to-markdown"}.issubset({item["id"] for item in formats})
+    assert all(item["fidelity_description"] for item in formats)
+    assert all(item["limitations"] for item in formats)
+
+
 def test_valid_pdf_conversion() -> None:
     response = client.post("/api/convert", files={"file": ("sample.pdf", make_pdf(), "application/pdf")})
     assert response.status_code == 200
@@ -124,7 +133,7 @@ def test_conversion_rejects_wrong_source_type() -> None:
         files={"file": ("sample.docx", make_docx(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
     )
     assert response.status_code == 400
-    assert "PDF" in response.json()["error"]
+    assert "PDF" in response.json()["error"]["message"]
 
 
 @pytest.mark.parametrize(
@@ -138,7 +147,7 @@ def test_conversion_rejects_wrong_source_type() -> None:
 def test_invalid_uploads(name: str, data: bytes, content_type: str, expected: str) -> None:
     response = client.post("/api/convert", files={"file": (name, data, content_type)})
     assert response.status_code == 400
-    assert expected.lower() in response.json()["error"].lower()
+    assert expected.lower() in response.json()["error"]["message"].lower()
 
 
 def test_oversized_file() -> None:

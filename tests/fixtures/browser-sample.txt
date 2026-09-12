@@ -1,0 +1,4 @@
+FileMorph browser verification
+
+This real UTF-8 text sample checks authenticated conversion, history creation,
+and download delivery without using a private document.

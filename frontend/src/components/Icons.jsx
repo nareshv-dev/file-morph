@@ -14,3 +14,7 @@ export function ArrowIcon() { return <svg {...iconProps}><path d="M5 12h14M14 7l
 export function PdfIcon() { return <svg {...iconProps} width="24" height="24"><path d="M6 2.5h8l4 4V21H6z"/><path d="M14 2.5v4h4M8.5 15.5h7M8.5 12h7"/></svg> }
 export function WordIcon() { return <svg {...iconProps} width="24" height="24"><path d="M4 5.5h16v13H4zM8 3v3M16 3v3"/><path d="M8 10l1.5 5 2.5-5 2.5 5L16 10"/></svg> }
 export function MarkdownIcon() { return <svg {...iconProps} width="24" height="24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M6.5 15v-6l2.5 3 2.5-3v6M15 12h3m-1.5-2v5"/></svg> }
+export function EyeIcon({ hidden = false }) { return <svg {...iconProps}>{hidden ? <><path d="M3 3l18 18"/><path d="M10.6 10.6a2 2 0 002.8 2.8M9.9 4.2A10.8 10.8 0 0112 4c5.5 0 9 8 9 8a17 17 0 01-2.1 3.2M6.6 6.6C4.2 8.2 3 12 3 12s3.5 8 9 8c1 0 2-.3 2.9-.7"/></> : <><path d="M3 12s3.5-8 9-8 9 8 9 8-3.5 8-9 8-9-8-9-8z"/><circle cx="12" cy="12" r="2.5"/></>}</svg> }
+export function HistoryIcon() { return <svg {...iconProps}><path d="M3 12a9 9 0 109-9 9 9 0 00-7 3.3L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg> }
+export function UserIcon() { return <svg {...iconProps}><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg> }
+export function TrashIcon() { return <svg {...iconProps}><path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6"/></svg> }

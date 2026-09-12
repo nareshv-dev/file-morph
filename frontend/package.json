@@ -8,6 +8,7 @@
     "dev:web": "vite",
     "dev:api": "python -m uvicorn backend.main:app --reload --reload-dir ../backend --port 8001 --app-dir ..",
     "build": "vite build",
+    "test": "vitest run",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -17,8 +18,13 @@
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
     "@vitejs/plugin-react": "^5.0.2",
     "concurrently": "^9.2.1",
-    "vite": "^7.1.4"
+    "jsdom": "^30.0.1",
+    "vite": "^7.1.4",
+    "vitest": "^5.0.0"
   }
 }
